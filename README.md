@@ -62,6 +62,7 @@ mt -t 15
 | Key | Action |
 | --- | --- |
 | `Backspace` | Delete the previous character |
+| `Tab` | Cancel the current test and start a new one |
 | `Esc` | End the test early and show results |
 | `Ctrl+C` | Quit immediately |
 

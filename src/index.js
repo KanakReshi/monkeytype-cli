@@ -123,12 +123,18 @@ function render() {
   console.log("");
   console.log(state.input || "Start typing...");
   console.log("");
-  console.log("Backspace fixes mistakes. Esc ends early. Ctrl+C quits.");
+  console.log("Backspace fixes mistakes. Tab restarts. Esc ends early. Ctrl+C quits.");
+}
+
+function stopTimers() {
+  clearTimeout(state.timer);
+  clearInterval(state.tick);
+  state.timer = null;
+  state.tick = null;
 }
 
 function cleanup() {
-  clearTimeout(state.timer);
-  clearInterval(state.tick);
+  stopTimers();
 
   if (process.stdin.isTTY) {
     process.stdin.setRawMode(false);
@@ -156,6 +162,15 @@ function finish() {
   console.log(`errors: ${stats.errors}`);
 }
 
+function restartTest() {
+  stopTimers();
+  state.target = buildTargetText();
+  state.input = "";
+  state.startedAt = null;
+  state.finished = false;
+  render();
+}
+
 function startTimer() {
   if (state.startedAt) {
     return;
@@ -177,6 +192,11 @@ function handleKeypress(sequence, key) {
     return;
   }
 
+  if (key?.name === "tab") {
+    restartTest();
+    return;
+  }
+
   if (key?.name === "backspace") {
     startTimer();
     state.input = state.input.slice(0, -1);
@@ -184,7 +204,7 @@ function handleKeypress(sequence, key) {
     return;
   }
 
-  if (key?.name === "return" || key?.name === "tab") {
+  if (key?.name === "return") {
     return;
   }
 
