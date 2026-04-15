@@ -1,0 +1,22 @@
+{
+  "name": "monkeytype-cli",
+  "version": "0.1.0",
+  "description": "A tiny Monkeytype-inspired typing test for the terminal.",
+  "bin": {
+    "monkeytype-cli": "./src/index.js",
+    "mt": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --check src/index.js"
+  },
+  "keywords": [
+    "typing",
+    "cli",
+    "monkeytype"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
