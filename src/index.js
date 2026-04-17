@@ -35,7 +35,8 @@ const state = {
   startedAt: null,
   finished: false,
   timer: null,
-  tick: null
+  tick: null,
+  hasRendered: false
 };
 
 function parseDuration(argv) {
@@ -63,8 +64,16 @@ function buildTargetText() {
   return Array.from({ length: WORD_COUNT }, randomWord).join(" ");
 }
 
-function clearScreen() {
-  process.stdout.write("\x1Bc");
+function hideCursor() {
+  process.stdout.write("\x1b[?25l");
+}
+
+function showCursor() {
+  process.stdout.write("\x1b[?25h");
+}
+
+function resetRenderPosition() {
+  state.hasRendered = false;
 }
 
 function secondsRemaining() {
@@ -115,15 +124,20 @@ function renderTarget() {
 }
 
 function render() {
-  clearScreen();
-  console.log("monkeytype-cli");
-  console.log(`mode: no punctuation | time: ${state.duration}s | remaining: ${secondsRemaining()}s`);
-  console.log("");
-  console.log(renderTarget());
-  console.log("");
-  console.log(state.input || "Start typing...");
-  console.log("");
-  console.log("Backspace fixes mistakes. Tab restarts. Esc ends early. Ctrl+C quits.");
+  const clearSequence = state.hasRendered ? "\x1b[H\x1b[J" : "\x1b[2J\x1b[H";
+  const output = [
+    "monkeytype-cli",
+    `mode: no punctuation | time: ${state.duration}s | remaining: ${secondsRemaining()}s`,
+    "",
+    renderTarget(),
+    "",
+    state.input || "Start typing...",
+    "",
+    "Backspace fixes mistakes. Tab restarts. Esc ends early. Ctrl+C quits."
+  ].join("\n");
+
+  process.stdout.write(`${clearSequence}${output}`);
+  state.hasRendered = true;
 }
 
 function stopTimers() {
@@ -135,6 +149,7 @@ function stopTimers() {
 
 function cleanup() {
   stopTimers();
+  showCursor();
 
   if (process.stdin.isTTY) {
     process.stdin.setRawMode(false);
@@ -150,16 +165,20 @@ function finish() {
 
   state.finished = true;
   cleanup();
-  clearScreen();
+  resetRenderPosition();
 
   const stats = calculateStats();
-  console.log("Result");
-  console.log(`mode: no punctuation | time: ${state.duration}s`);
-  console.log("");
-  console.log(`wpm: ${stats.wpm}`);
-  console.log(`raw: ${stats.rawWpm}`);
-  console.log(`accuracy: ${stats.accuracy}%`);
-  console.log(`errors: ${stats.errors}`);
+  const output = [
+    "Result",
+    `mode: no punctuation | time: ${state.duration}s`,
+    "",
+    `wpm: ${stats.wpm}`,
+    `raw: ${stats.rawWpm}`,
+    `accuracy: ${stats.accuracy}%`,
+    `errors: ${stats.errors}`
+  ].join("\n");
+
+  process.stdout.write(`\x1b[2J\x1b[H${output}\n`);
 }
 
 function restartTest() {
@@ -168,6 +187,8 @@ function restartTest() {
   state.input = "";
   state.startedAt = null;
   state.finished = false;
+  resetRenderPosition();
+  hideCursor();
   render();
 }
 
@@ -262,6 +283,7 @@ async function main() {
   process.stdin.resume();
   process.stdin.on("keypress", handleKeypress);
 
+  hideCursor();
   render();
 }
 
