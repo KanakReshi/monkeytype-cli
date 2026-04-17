@@ -164,7 +164,8 @@ function finish() {
   }
 
   state.finished = true;
-  cleanup();
+  stopTimers();
+  showCursor();
   resetRenderPosition();
 
   const stats = calculateStats();
@@ -175,7 +176,9 @@ function finish() {
     `wpm: ${stats.wpm}`,
     `raw: ${stats.rawWpm}`,
     `accuracy: ${stats.accuracy}%`,
-    `errors: ${stats.errors}`
+    `errors: ${stats.errors}`,
+    "",
+    "Tab restarts. Ctrl+C quits."
   ].join("\n");
 
   process.stdout.write(`\x1b[2J\x1b[H${output}\n`);
@@ -215,6 +218,10 @@ function handleKeypress(sequence, key) {
 
   if (key?.name === "tab") {
     restartTest();
+    return;
+  }
+
+  if (state.finished) {
     return;
   }
 
