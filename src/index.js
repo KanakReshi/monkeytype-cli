@@ -28,6 +28,16 @@ const VALID_DURATIONS = new Set([15, 30]);
 const DEFAULT_DURATION = 15;
 const WORD_COUNT = 80;
 
+const colors = {
+  reset: "\x1b[0m",
+  bold: "\x1b[1m",
+  blue: "\x1b[34m",
+  cyan: "\x1b[36m",
+  green: "\x1b[32m",
+  gray: "\x1b[90m",
+  yellow: "\x1b[33m"
+};
+
 const state = {
   duration: DEFAULT_DURATION,
   target: "",
@@ -74,6 +84,20 @@ function showCursor() {
 
 function resetRenderPosition() {
   state.hasRendered = false;
+}
+
+function renderHeader() {
+  return [
+    `${colors.cyan}${colors.bold}+------------------------------------------------------------+${colors.reset}`,
+    `${colors.cyan}${colors.bold}|${colors.reset} ${colors.yellow}${colors.bold} __  __             _              _                    ${colors.reset}${colors.cyan}${colors.bold}|${colors.reset}`,
+    `${colors.cyan}${colors.bold}|${colors.reset} ${colors.yellow}${colors.bold}|  \\/  | ___  _ __ | | _____ _   _| |_ _   _ _ __   ___ ${colors.reset}${colors.cyan}${colors.bold}|${colors.reset}`,
+    `${colors.cyan}${colors.bold}|${colors.reset} ${colors.yellow}${colors.bold}| |\\/| |/ _ \\| '_ \\| |/ / _ \\ | | | __| | | | '_ \\ / _ \\${colors.reset}${colors.cyan}${colors.bold}|${colors.reset}`,
+    `${colors.cyan}${colors.bold}|${colors.reset} ${colors.yellow}${colors.bold}| |  | | (_) | | | |   <  __/ |_| | |_| |_| | |_) |  __/${colors.reset}${colors.cyan}${colors.bold}|${colors.reset}`,
+    `${colors.cyan}${colors.bold}|${colors.reset} ${colors.yellow}${colors.bold}|_|  |_|\\___/|_| |_|_|\\_\\___|\\__, |\\__|\\__, | .__/ \\___|${colors.reset}${colors.cyan}${colors.bold}|${colors.reset}`,
+    `${colors.cyan}${colors.bold}|${colors.reset} ${colors.yellow}${colors.bold}                             |___/     |___/|_|        ${colors.reset}${colors.cyan}${colors.bold}|${colors.reset}`,
+    `${colors.cyan}${colors.bold}|${colors.reset} ${colors.blue}${colors.bold}CLI${colors.reset} ${colors.gray}terminal typing sprint // no punctuation // stay sharp${colors.reset} ${colors.cyan}${colors.bold}|${colors.reset}`,
+    `${colors.cyan}${colors.bold}+------------------------------------------------------------+${colors.reset}`
+  ].join("\n");
 }
 
 function secondsRemaining() {
@@ -126,7 +150,7 @@ function renderTarget() {
 function render() {
   const clearSequence = state.hasRendered ? "\x1b[H\x1b[J" : "\x1b[2J\x1b[H";
   const output = [
-    "monkeytype-cli",
+    renderHeader(),
     `mode: no punctuation | time: ${state.duration}s | remaining: ${secondsRemaining()}s`,
     "",
     renderTarget(),
@@ -170,7 +194,9 @@ function finish() {
 
   const stats = calculateStats();
   const output = [
-    "Result",
+    renderHeader(),
+    "",
+    `${colors.bold}${colors.green}Result${colors.reset}`,
     `mode: no punctuation | time: ${state.duration}s`,
     "",
     `wpm: ${stats.wpm}`,
@@ -282,6 +308,7 @@ async function main() {
     process.exit(1);
   }
 
+  process.stdout.write(`\x1b[2J\x1b[H${renderHeader()}\n\n`);
   state.duration = parseDuration(process.argv) ?? await askDuration();
   state.target = buildTargetText();
 
