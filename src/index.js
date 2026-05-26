@@ -2,6 +2,15 @@
 
 const readline = require("node:readline");
 
+/*
+ * This file is the whole CLI app:
+ * 1. Choose a time mode.
+ * 2. Generate random words.
+ * 3. Read each keypress.
+ * 4. Render the typing test.
+ * 5. Show final stats.
+ */
+
 const WORDS = [
   "about", "after", "again", "air", "also", "always", "animal", "answer", "around", "ask",
   "back", "because", "before", "begin", "better", "between", "big", "book", "both", "bring",
@@ -26,37 +35,47 @@ const WORDS = [
 
 const VALID_DURATIONS = new Set([15, 30]);
 const DEFAULT_DURATION = 15;
-const WORD_COUNT = 80;
+const TARGET_WORD_COUNT = 80;
 
-const colors = {
+const ANSI = {
   reset: "\x1b[0m",
   bold: "\x1b[1m",
   blue: "\x1b[34m",
   cyan: "\x1b[36m",
   green: "\x1b[32m",
   gray: "\x1b[90m",
-  yellow: "\x1b[33m"
+  red: "\x1b[31m",
+  yellow: "\x1b[33m",
+  clearScreen: "\x1b[2J\x1b[H",
+  clearFromTop: "\x1b[H\x1b[J",
+  hideCursor: "\x1b[?25l",
+  showCursor: "\x1b[?25h"
 };
 
-const state = {
+const testState = {
   duration: DEFAULT_DURATION,
-  target: "",
-  input: "",
+  targetText: "",
+  typedText: "",
   startedAt: null,
   finished: false,
-  timer: null,
-  tick: null,
+  finishTimer: null,
+  renderTimer: null,
   hasRendered: false
 };
 
-function parseDuration(argv) {
+function color(text, ...styles) {
+  return `${styles.join("")}${text}${ANSI.reset}`;
+}
+
+function parseDurationFromArgs(argv) {
   const timeFlagIndex = argv.findIndex((arg) => arg === "--time" || arg === "-t");
   const value = timeFlagIndex >= 0 ? argv[timeFlagIndex + 1] : argv[2];
-  const duration = Number(value);
 
   if (!value) {
     return null;
   }
+
+  const duration = Number(value);
 
   if (VALID_DURATIONS.has(duration)) {
     return duration;
@@ -66,112 +85,130 @@ function parseDuration(argv) {
   process.exit(1);
 }
 
-function randomWord() {
-  return WORDS[Math.floor(Math.random() * WORDS.length)];
+function getRandomWord() {
+  const randomIndex = Math.floor(Math.random() * WORDS.length);
+  return WORDS[randomIndex];
 }
 
 function buildTargetText() {
-  return Array.from({ length: WORD_COUNT }, randomWord).join(" ");
+  return Array.from({ length: TARGET_WORD_COUNT }, getRandomWord).join(" ");
+}
+
+function writeToTerminal(text) {
+  process.stdout.write(text);
 }
 
 function hideCursor() {
-  process.stdout.write("\x1b[?25l");
+  writeToTerminal(ANSI.hideCursor);
 }
 
 function showCursor() {
-  process.stdout.write("\x1b[?25h");
+  writeToTerminal(ANSI.showCursor);
 }
 
 function resetRenderPosition() {
-  state.hasRendered = false;
+  testState.hasRendered = false;
 }
 
 function renderHeader() {
+  const border = color("+------------------------------------------------------------+", ANSI.cyan, ANSI.bold);
+  const edge = color("|", ANSI.cyan, ANSI.bold);
+  const title = (text) => color(text, ANSI.yellow, ANSI.bold);
+
   return [
-    `${colors.cyan}${colors.bold}+------------------------------------------------------------+${colors.reset}`,
-    `${colors.cyan}${colors.bold}|${colors.reset} ${colors.yellow}${colors.bold} __  __             _              _                    ${colors.reset}${colors.cyan}${colors.bold}|${colors.reset}`,
-    `${colors.cyan}${colors.bold}|${colors.reset} ${colors.yellow}${colors.bold}|  \\/  | ___  _ __ | | _____ _   _| |_ _   _ _ __   ___ ${colors.reset}${colors.cyan}${colors.bold}|${colors.reset}`,
-    `${colors.cyan}${colors.bold}|${colors.reset} ${colors.yellow}${colors.bold}| |\\/| |/ _ \\| '_ \\| |/ / _ \\ | | | __| | | | '_ \\ / _ \\${colors.reset}${colors.cyan}${colors.bold}|${colors.reset}`,
-    `${colors.cyan}${colors.bold}|${colors.reset} ${colors.yellow}${colors.bold}| |  | | (_) | | | |   <  __/ |_| | |_| |_| | |_) |  __/${colors.reset}${colors.cyan}${colors.bold}|${colors.reset}`,
-    `${colors.cyan}${colors.bold}|${colors.reset} ${colors.yellow}${colors.bold}|_|  |_|\\___/|_| |_|_|\\_\\___|\\__, |\\__|\\__, | .__/ \\___|${colors.reset}${colors.cyan}${colors.bold}|${colors.reset}`,
-    `${colors.cyan}${colors.bold}|${colors.reset} ${colors.yellow}${colors.bold}                             |___/     |___/|_|        ${colors.reset}${colors.cyan}${colors.bold}|${colors.reset}`,
-    `${colors.cyan}${colors.bold}|${colors.reset} ${colors.blue}${colors.bold}CLI${colors.reset} ${colors.gray}terminal typing sprint // no punctuation // stay sharp${colors.reset} ${colors.cyan}${colors.bold}|${colors.reset}`,
-    `${colors.cyan}${colors.bold}+------------------------------------------------------------+${colors.reset}`
+    border,
+    `${edge} ${title(" __  __             _              _                    ")}${edge}`,
+    `${edge} ${title("|  \\/  | ___  _ __ | | _____ _   _| |_ _   _ _ __   ___ ")}${edge}`,
+    `${edge} ${title("| |\\/| |/ _ \\| '_ \\| |/ / _ \\ | | | __| | | | '_ \\ / _ \\")}${edge}`,
+    `${edge} ${title("| |  | | (_) | | | |   <  __/ |_| | |_| |_| | |_) |  __/")}${edge}`,
+    `${edge} ${title("|_|  |_|\\___/|_| |_|_|\\_\\___|\\__, |\\__|\\__, | .__/ \\___|")}${edge}`,
+    `${edge} ${title("                             |___/     |___/|_|        ")}${edge}`,
+    `${edge} ${color("CLI", ANSI.blue, ANSI.bold)} ${color("terminal typing sprint // no punctuation // stay sharp", ANSI.gray)} ${edge}`,
+    border
   ].join("\n");
 }
 
-function secondsRemaining() {
-  if (!state.startedAt) {
-    return state.duration;
+function getSecondsRemaining() {
+  if (!testState.startedAt) {
+    return testState.duration;
   }
 
-  const elapsed = Math.floor((Date.now() - state.startedAt) / 1000);
-  return Math.max(0, state.duration - elapsed);
+  const elapsedSeconds = Math.floor((Date.now() - testState.startedAt) / 1000);
+  return Math.max(0, testState.duration - elapsedSeconds);
 }
 
-function calculateStats() {
-  const elapsedMs = state.startedAt ? Date.now() - state.startedAt : state.duration * 1000;
-  const minutes = Math.max(elapsedMs, state.duration * 1000) / 60000;
-  let correctChars = 0;
+function countCorrectCharacters() {
+  let correctCharacters = 0;
 
-  for (let index = 0; index < state.input.length; index += 1) {
-    if (state.input[index] === state.target[index]) {
-      correctChars += 1;
+  for (let index = 0; index < testState.typedText.length; index += 1) {
+    if (testState.typedText[index] === testState.targetText[index]) {
+      correctCharacters += 1;
     }
   }
 
-  const errors = Math.max(0, state.input.length - correctChars);
-  const accuracy = state.input.length === 0 ? 100 : Math.round((correctChars / state.input.length) * 100);
-  const wpm = Math.round(correctChars / 5 / minutes);
-  const rawWpm = Math.round(state.input.length / 5 / minutes);
+  return correctCharacters;
+}
+
+function calculateStats() {
+  const elapsedMs = testState.startedAt ? Date.now() - testState.startedAt : testState.duration * 1000;
+  const scoringMs = Math.max(elapsedMs, testState.duration * 1000);
+  const minutes = scoringMs / 60000;
+  const correctCharacters = countCorrectCharacters();
+  const typedCharacters = testState.typedText.length;
+  const errors = Math.max(0, typedCharacters - correctCharacters);
+  const accuracy = typedCharacters === 0 ? 100 : Math.round((correctCharacters / typedCharacters) * 100);
+  const wpm = Math.round(correctCharacters / 5 / minutes);
+  const rawWpm = Math.round(typedCharacters / 5 / minutes);
 
   return { accuracy, errors, rawWpm, wpm };
 }
 
-function renderTarget() {
-  const chars = [];
+function renderTargetText() {
+  const visibleCharacters = [];
 
-  for (let index = 0; index < state.target.length; index += 1) {
-    const expected = state.target[index];
-    const actual = state.input[index];
+  for (let index = 0; index < testState.targetText.length; index += 1) {
+    const expectedCharacter = testState.targetText[index];
+    const typedCharacter = testState.typedText[index];
 
-    if (actual == null) {
-      chars.push(expected);
-    } else if (actual === expected) {
-      chars.push(`\x1b[32m${expected}\x1b[0m`);
+    if (typedCharacter == null) {
+      visibleCharacters.push(expectedCharacter);
+    } else if (typedCharacter === expectedCharacter) {
+      visibleCharacters.push(color(expectedCharacter, ANSI.green));
     } else {
-      chars.push(`\x1b[31m${expected === " " ? "_" : expected}\x1b[0m`);
+      const visibleMistake = expectedCharacter === " " ? "_" : expectedCharacter;
+      visibleCharacters.push(color(visibleMistake, ANSI.red));
     }
   }
 
-  return chars.join("");
+  return visibleCharacters.join("");
 }
 
-function render() {
-  const clearSequence = state.hasRendered ? "\x1b[H\x1b[J" : "\x1b[2J\x1b[H";
+function renderTestScreen() {
+  const clearSequence = testState.hasRendered ? ANSI.clearFromTop : ANSI.clearScreen;
+  const typedLine = testState.typedText || "Start typing...";
   const output = [
     renderHeader(),
-    `mode: no punctuation | time: ${state.duration}s | remaining: ${secondsRemaining()}s`,
+    `mode: no punctuation | time: ${testState.duration}s | remaining: ${getSecondsRemaining()}s`,
     "",
-    renderTarget(),
+    renderTargetText(),
     "",
-    state.input || "Start typing...",
+    typedLine,
     "",
     "Backspace fixes mistakes. Tab restarts. Esc ends early. Ctrl+C quits."
   ].join("\n");
 
-  process.stdout.write(`${clearSequence}${output}`);
-  state.hasRendered = true;
+  writeToTerminal(`${clearSequence}${output}`);
+  testState.hasRendered = true;
 }
 
 function stopTimers() {
-  clearTimeout(state.timer);
-  clearInterval(state.tick);
-  state.timer = null;
-  state.tick = null;
+  clearTimeout(testState.finishTimer);
+  clearInterval(testState.renderTimer);
+  testState.finishTimer = null;
+  testState.renderTimer = null;
 }
 
-function cleanup() {
+function cleanupTerminal() {
   stopTimers();
   showCursor();
 
@@ -182,12 +219,12 @@ function cleanup() {
   process.stdin.pause();
 }
 
-function finish() {
-  if (state.finished) {
+function finishTest() {
+  if (testState.finished) {
     return;
   }
 
-  state.finished = true;
+  testState.finished = true;
   stopTimers();
   showCursor();
   resetRenderPosition();
@@ -196,8 +233,8 @@ function finish() {
   const output = [
     renderHeader(),
     "",
-    `${colors.bold}${colors.green}Result${colors.reset}`,
-    `mode: no punctuation | time: ${state.duration}s`,
+    color("Result", ANSI.bold, ANSI.green),
+    `mode: no punctuation | time: ${testState.duration}s`,
     "",
     `wpm: ${stats.wpm}`,
     `raw: ${stats.rawWpm}`,
@@ -207,38 +244,42 @@ function finish() {
     "Tab restarts. Ctrl+C quits."
   ].join("\n");
 
-  process.stdout.write(`\x1b[2J\x1b[H${output}\n`);
+  writeToTerminal(`${ANSI.clearScreen}${output}\n`);
 }
 
 function restartTest() {
   stopTimers();
-  state.target = buildTargetText();
-  state.input = "";
-  state.startedAt = null;
-  state.finished = false;
+  testState.targetText = buildTargetText();
+  testState.typedText = "";
+  testState.startedAt = null;
+  testState.finished = false;
   resetRenderPosition();
   hideCursor();
-  render();
+  renderTestScreen();
 }
 
-function startTimer() {
-  if (state.startedAt) {
+function startTimerIfNeeded() {
+  if (testState.startedAt) {
     return;
   }
 
-  state.startedAt = Date.now();
-  state.timer = setTimeout(finish, state.duration * 1000);
-  state.tick = setInterval(render, 250);
+  testState.startedAt = Date.now();
+  testState.finishTimer = setTimeout(finishTest, testState.duration * 1000);
+  testState.renderTimer = setInterval(renderTestScreen, 250);
+}
+
+function isPrintableCharacter(sequence) {
+  return sequence.length === 1 && sequence >= " " && sequence <= "~";
 }
 
 function handleKeypress(sequence, key) {
   if (key?.ctrl && key.name === "c") {
-    cleanup();
+    cleanupTerminal();
     process.exit(0);
   }
 
   if (key?.name === "escape") {
-    finish();
+    finishTest();
     return;
   }
 
@@ -247,14 +288,14 @@ function handleKeypress(sequence, key) {
     return;
   }
 
-  if (state.finished) {
+  if (testState.finished) {
     return;
   }
 
   if (key?.name === "backspace") {
-    startTimer();
-    state.input = state.input.slice(0, -1);
-    render();
+    startTimerIfNeeded();
+    testState.typedText = testState.typedText.slice(0, -1);
+    renderTestScreen();
     return;
   }
 
@@ -262,16 +303,16 @@ function handleKeypress(sequence, key) {
     return;
   }
 
-  if (sequence.length === 1 && sequence >= " " && sequence <= "~") {
-    startTimer();
-    state.input += sequence;
+  if (isPrintableCharacter(sequence)) {
+    startTimerIfNeeded();
+    testState.typedText += sequence;
 
-    if (state.input.length >= state.target.length) {
-      finish();
+    if (testState.typedText.length >= testState.targetText.length) {
+      finishTest();
       return;
     }
 
-    render();
+    renderTestScreen();
   }
 }
 
@@ -285,12 +326,15 @@ function askDuration() {
     rl.question(`Choose time mode (15/30) [${DEFAULT_DURATION}]: `, (answer) => {
       rl.close();
 
-      if (!answer.trim()) {
+      const trimmedAnswer = answer.trim();
+
+      if (!trimmedAnswer) {
         resolve(DEFAULT_DURATION);
         return;
       }
 
-      const duration = Number(answer.trim());
+      const duration = Number(trimmedAnswer);
+
       if (!VALID_DURATIONS.has(duration)) {
         console.log("Invalid time mode. Using 15 seconds.");
         resolve(DEFAULT_DURATION);
@@ -308,9 +352,9 @@ async function main() {
     process.exit(1);
   }
 
-  process.stdout.write(`\x1b[2J\x1b[H${renderHeader()}\n\n`);
-  state.duration = parseDuration(process.argv) ?? await askDuration();
-  state.target = buildTargetText();
+  writeToTerminal(`${ANSI.clearScreen}${renderHeader()}\n\n`);
+  testState.duration = parseDurationFromArgs(process.argv) ?? await askDuration();
+  testState.targetText = buildTargetText();
 
   readline.emitKeypressEvents(process.stdin);
   process.stdin.setRawMode(true);
@@ -318,11 +362,11 @@ async function main() {
   process.stdin.on("keypress", handleKeypress);
 
   hideCursor();
-  render();
+  renderTestScreen();
 }
 
 main().catch((error) => {
-  cleanup();
+  cleanupTerminal();
   console.error(error);
-  process.exit(1);
+  process.exit(1);  
 });
