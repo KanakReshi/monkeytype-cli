@@ -117,12 +117,12 @@ function renderHeader() {
 
   return [
     border,
-    `${edge} ${title(" __  __             _              _                    ")}${edge}`,
-    `${edge} ${title("|  \\/  | ___  _ __ | | _____ _   _| |_ _   _ _ __   ___ ")}${edge}`,
-    `${edge} ${title("| |\\/| |/ _ \\| '_ \\| |/ / _ \\ | | | __| | | | '_ \\ / _ \\")}${edge}`,
-    `${edge} ${title("| |  | | (_) | | | |   <  __/ |_| | |_| |_| | |_) |  __/")}${edge}`,
-    `${edge} ${title("|_|  |_|\\___/|_| |_|_|\\_\\___|\\__, |\\__|\\__, | .__/ \\___|")}${edge}`,
-    `${edge} ${title("                             |___/     |___/|_|        ")}${edge}`,
+    `${edge} ${title(" __  __             _              _                    ")}   ${edge}`,
+    `${edge} ${title("|  \\/  | ___  _ __ | | _____ _   _| |_ _   _ _ __   ___ ")}   ${edge}`,
+    `${edge} ${title("| |\\/| |/ _ \\| '_ \\| |/ / _ \\ | | | __| | | | '_ \\ / _ \\")}   ${edge}`,
+    `${edge} ${title("| |  | | (_) | | | |   <  __/ |_| | |_| |_| | |_) |  __/")}   ${edge}`,
+    `${edge} ${title("|_|  |_|\\___/|_| |_|_|\\_\\___|\\__, |\\__|\\__, | .__/ \\___|")}   ${edge}`,
+    `${edge} ${title("                             |___/     |___/|_|        ")}    ${edge}`,
     `${edge} ${color("CLI", ANSI.blue, ANSI.bold)} ${color("terminal typing sprint // no punctuation // stay sharp", ANSI.gray)} ${edge}`,
     border
   ].join("\n");
