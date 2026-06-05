@@ -60,7 +60,8 @@ const testState = {
   finished: false,
   finishTimer: null,
   renderTimer: null,
-  hasRendered: false
+  hasRendered: false,
+  errorCount: 0
 };
 
 function color(text, ...styles) {
@@ -155,7 +156,7 @@ function calculateStats() {
   const minutes = scoringMs / 60000;
   const correctCharacters = countCorrectCharacters();
   const typedCharacters = testState.typedText.length;
-  const errors = Math.max(0, typedCharacters - correctCharacters);
+  const errors = testState.errorCount;
   const accuracy = typedCharacters === 0 ? 100 : Math.round((correctCharacters / typedCharacters) * 100);
   const wpm = Math.round(correctCharacters / 5 / minutes);
   const rawWpm = Math.round(typedCharacters / 5 / minutes);
@@ -253,6 +254,7 @@ function restartTest() {
   testState.typedText = "";
   testState.startedAt = null;
   testState.finished = false;
+  testState.errorCount = 0;
   resetRenderPosition();
   hideCursor();
   renderTestScreen();
@@ -305,6 +307,10 @@ function handleKeypress(sequence, key) {
 
   if (isPrintableCharacter(sequence)) {
     startTimerIfNeeded();
+    const currentIndex = testState.typedText.length;
+    if (sequence !== testState.targetText[currentIndex]) {
+      testState.errorCount += 1;
+    }
     testState.typedText += sequence;
 
     if (testState.typedText.length >= testState.targetText.length) {
